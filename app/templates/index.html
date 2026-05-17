@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS MLOps Dashboard | House Price Prediction</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        secondary: '#8b5cf6',
+                        dark: '#0f172a',
+                        darkCard: '#1e293b'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-gray-50 dark:bg-dark text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden font-sans">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 right-5 transform translate-x-full opacity-0 transition-all duration-300 z-50 flex items-center p-4 mb-4 text-sm rounded-lg shadow-lg" role="alert">
+        <i id="toast-icon" class="fas mr-3 text-lg"></i>
+        <div>
+            <span class="font-medium" id="toast-title"></span> <span id="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white dark:bg-darkCard shadow-xl h-full flex flex-col transition-colors duration-300 z-20">
+        <div class="h-16 flex items-center justify-center border-b border-gray-200 dark:border-gray-700">
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary flex items-center">
+                <i class="fas fa-brain mr-2 text-primary"></i> ML Nexus
+            </h1>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1">
+                <li>
+                    <a href="#" class="nav-link active flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="dashboard">
+                        <i class="fas fa-chart-pie w-6"></i>
+                        <span class="font-medium">Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="predict">
+                        <i class="fas fa-home w-6"></i>
+                        <span class="font-medium">Predict Price</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="analytics">
+                        <i class="fas fa-chart-line w-6"></i>
+                        <span class="font-medium">Analytics</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="monitoring">
+                        <i class="fas fa-server w-6"></i>
+                        <span class="font-medium">System Monitoring</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="retrain">
+                        <i class="fas fa-sync-alt w-6"></i>
+                        <span class="font-medium">Retrain Model</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="architecture">
+                        <i class="fas fa-project-diagram w-6"></i>
+                        <span class="font-medium">Architecture</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-500 dark:text-gray-400">DevOps & MLOps System</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
+        <!-- Top Navbar -->
+        <header class="h-16 bg-white/80 dark:bg-darkCard/80 backdrop-blur-md shadow-sm flex items-center justify-between px-6 z-10 transition-colors duration-300">
+            <div class="flex items-center">
+                <button class="text-gray-500 dark:text-gray-400 focus:outline-none lg:hidden mr-4">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <h2 id="page-title" class="text-xl font-semibold text-gray-800 dark:text-white">Dashboard Overview</h2>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="theme-toggle" class="text-gray-500 dark:text-gray-400 hover:text-primary focus:outline-none p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                    <i class="fas fa-moon text-xl" id="theme-icon"></i>
+                </button>
+                <div class="flex items-center space-x-2">
+                    <img src="https://ui-avatars.com/api/?name=Admin+User&background=6366f1&color=fff" alt="Profile" class="w-8 h-8 rounded-full shadow-sm">
+                    <span class="text-sm font-medium hidden md:block">Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Scrollable Content Area -->
+        <div class="flex-1 overflow-y-auto p-6 bg-transparent" id="main-content">
+            
+            <!-- SECTION: Dashboard -->
+            <section id="dashboard" class="page-section active-section">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- Card 1 -->
+                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Predictions</p>
+                                <h3 class="text-3xl font-bold mt-1" id="kpi-total">0</h3>
+                            </div>
+                            <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                                <i class="fas fa-calculator text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-green-500 mt-4 flex items-center"><i class="fas fa-arrow-up mr-1"></i> 12% from last week</p>
+                    </div>
+                    <!-- Card 2 -->
+                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Avg Predicted Price</p>
+                                <h3 class="text-3xl font-bold mt-1" id="kpi-avg">$0</h3>
+                            </div>
+                            <div class="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
+                                <i class="fas fa-dollar-sign text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-green-500 mt-4 flex items-center"><i class="fas fa-arrow-up mr-1"></i> Stable trend</p>
+                    </div>
+                    <!-- Card 3 -->
+                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Model Accuracy</p>
+                                <h3 class="text-3xl font-bold mt-1" id="kpi-accuracy">92.5%</h3>
+                            </div>
+                            <div class="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
+                                <i class="fas fa-bullseye text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-4">Random Forest Regressor</p>
+                    </div>
+                    <!-- Card 4 -->
+                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">System Status</p>
+                                <h3 class="text-3xl font-bold mt-1 text-green-500">Healthy</h3>
+                            </div>
+                            <div class="p-3 bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg">
+                                <i class="fas fa-check-circle text-xl"></i>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-4">AWS EC2 | Docker</p>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">Prediction Trends</h3>
+                        <div class="relative h-64 w-full">
+                            <canvas id="predictionsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">Recent Predictions History</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-400">
+                                    <tr>
+                                        <th class="px-4 py-3 rounded-l-lg">Time</th>
+                                        <th class="px-4 py-3">Area</th>
+                                        <th class="px-4 py-3">Beds</th>
+                                        <th class="px-4 py-3">Age</th>
+                                        <th class="px-4 py-3 rounded-r-lg">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body">
+                                    <!-- Populated via JS -->
+                                    <tr><td colspan="5" class="text-center py-4">No recent predictions</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Predict Price -->
+            <section id="predict" class="page-section hidden">
+                <div class="max-w-3xl mx-auto">
+                    <div class="glass-card rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="bg-gradient-to-r from-primary to-secondary p-6 text-white text-center">
+                            <h2 class="text-2xl font-bold"><i class="fas fa-home mr-2"></i> House Price Estimator</h2>
+                            <p class="text-primary-100 mt-2 opacity-90">Enter property details to get an instant ML-powered valuation.</p>
+                        </div>
+                        
+                        <div class="p-8">
+                            <form id="predictionForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="form-group">
+                                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Area (Square Feet)</label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <i class="fas fa-vector-square text-gray-400"></i>
+                                            </div>
+                                            <input type="number" id="area" required class="form-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-primary focus:border-primary transition-all text-gray-900 dark:text-white" placeholder="e.g. 2500">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Number of Bedrooms</label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <i class="fas fa-bed text-gray-400"></i>
+                                            </div>
+                                            <input type="number" id="bedrooms" required class="form-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-primary focus:border-primary transition-all text-gray-900 dark:text-white" placeholder="e.g. 3">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group md:col-span-2">
+                                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Property Age (Years)</label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <i class="fas fa-calendar-alt text-gray-400"></i>
+                                            </div>
+                                            <input type="number" id="age" required class="form-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-primary focus:border-primary transition-all text-gray-900 dark:text-white" placeholder="e.g. 10">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="submit" id="predictBtn" class="w-full py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all transform hover:scale-[1.02]">
+                                    <span>Predict Price</span>
+                                    <i class="fas fa-arrow-right ml-2"></i>
+                                </button>
+                            </form>
+
+                            <!-- Result Display -->
+                            <div id="resultBox" class="mt-8 hidden animate-fade-in-up">
+                                <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center shadow-inner relative overflow-hidden">
+                                    <!-- Decorative circle -->
+                                    <div class="absolute -right-10 -top-10 w-32 h-32 bg-green-500/10 rounded-full blur-2xl"></div>
+                                    <p class="text-sm font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider mb-2">Estimated Market Value</p>
+                                    <h3 class="text-5xl font-extrabold text-green-600 dark:text-green-400 drop-shadow-sm" id="predictedPriceValue">$0</h3>
+                                    <p class="text-xs text-gray-500 mt-4"><i class="fas fa-info-circle"></i> Based on historical data and current model weights.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Monitoring -->
+            <section id="monitoring" class="page-section hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div class="glass-card rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between col-span-1 lg:col-span-1">
+                        <div>
+                            <p class="text-sm text-gray-500">CPU Usage</p>
+                            <h3 class="text-2xl font-bold" id="mon-cpu">45%</h3>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2 dark:bg-gray-700">
+                                <div class="bg-primary h-2.5 rounded-full" id="bar-cpu" style="width: 45%"></div>
+                            </div>
+                        </div>
+                        <i class="fas fa-microchip text-4xl text-gray-300 dark:text-gray-600"></i>
+                    </div>
+                    <div class="glass-card rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between col-span-1 lg:col-span-1">
+                        <div>
+                            <p class="text-sm text-gray-500">Memory Usage</p>
+                            <h3 class="text-2xl font-bold" id="mon-mem">62%</h3>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2 dark:bg-gray-700">
+                                <div class="bg-secondary h-2.5 rounded-full" id="bar-mem" style="width: 62%"></div>
+                            </div>
+                        </div>
+                        <i class="fas fa-memory text-4xl text-gray-300 dark:text-gray-600"></i>
+                    </div>
+                    <div class="glass-card rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700 col-span-1 lg:col-span-1">
+                        <p class="text-sm text-gray-500 mb-4">Pipeline Status</p>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium flex items-center"><i class="fab fa-jenkins mr-2"></i> Jenkins Build</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full dark:bg-green-900/50 dark:text-green-400">Success</span>
+                        </div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium flex items-center"><i class="fab fa-docker mr-2"></i> Docker Status</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full dark:bg-green-900/50 dark:text-green-400">Running</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm font-medium flex items-center"><i class="fab fa-aws mr-2"></i> AWS Deployment</span>
+                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full dark:bg-green-900/50 dark:text-green-400">Healthy</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold"><i class="fas fa-tachometer-alt mr-2 text-primary"></i>Grafana & Prometheus Live Metrics (Mocked)</h3>
+                        <button class="text-primary hover:text-secondary" onclick="fetchDashboardStats()"><i class="fas fa-sync-alt"></i></button>
+                    </div>
+                    <div class="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-400 overflow-x-auto h-64 shadow-inner">
+                        <p># HELP app_request_count Total API requests</p>
+                        <p># TYPE app_request_count counter</p>
+                        <p>app_request_count{endpoint="/predict",http_status="200",method="POST"} <span id="prom-predict-count">0</span>.0</p>
+                        <p>app_request_count{endpoint="/health",http_status="200",method="GET"} 52.0</p>
+                        <p># HELP app_request_latency_seconds Request latency in seconds</p>
+                        <p># TYPE app_request_latency_seconds histogram</p>
+                        <p>app_request_latency_seconds_bucket{endpoint="/predict",le="0.005"} 0.0</p>
+                        <p>app_request_latency_seconds_bucket{endpoint="/predict",le="0.01"} 2.0</p>
+                        <p class="text-yellow-400 mt-2">-- Live Stream Connected --</p>
+                        <p class="opacity-50">Monitoring container health... OK</p>
+                        <p class="opacity-50">Scraping node metrics... OK</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Retrain Model -->
+            <section id="retrain" class="page-section hidden">
+                <div class="max-w-2xl mx-auto">
+                    <div class="glass-card rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="p-8 text-center">
+                            <div class="w-20 h-20 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <i class="fas fa-robot text-4xl text-primary"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold mb-2">Automated MLOps Retraining</h2>
+                            <p class="text-gray-500 dark:text-gray-400 mb-8">Trigger the CI/CD pipeline to fetch the latest dataset, preprocess features, and retrain the Random Forest Regressor on the fly. No downtime required.</p>
+                            
+                            <button id="triggerRetrainBtn" class="bg-dark dark:bg-white text-white dark:text-dark px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all shadow-lg flex items-center justify-center w-full mx-auto">
+                                <i class="fas fa-play-circle mr-3"></i> Trigger Retraining Pipeline
+                            </button>
+                        </div>
+                        
+                        <!-- Terminal Log Box -->
+                        <div id="retrainLogContainer" class="hidden bg-gray-900 p-6 border-t border-gray-800">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-gray-400 font-mono">Terminal Output</span>
+                                <span class="flex space-x-1">
+                                    <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                                    <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                                    <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                                </span>
+                            </div>
+                            <pre id="retrainLog" class="font-mono text-xs text-gray-300 whitespace-pre-wrap max-h-64 overflow-y-auto">Initiating retraining sequence...</pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: Architecture -->
+            <section id="architecture" class="page-section hidden">
+                <div class="glass-card rounded-xl p-8 shadow-lg border border-gray-100 dark:border-gray-700">
+                    <h2 class="text-2xl font-bold mb-6 text-center border-b border-gray-200 dark:border-gray-700 pb-4">DevOps & MLOps Architecture</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                        <div>
+                            <h3 class="font-bold text-lg text-primary mb-3"><i class="fas fa-code-branch mr-2"></i> CI/CD Pipeline (Jenkins)</h3>
+                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                <li><strong>Trigger:</strong> GitHub Webhook on push.</li>
+                                <li><strong>Test:</strong> Pytest runs unit tests automatically.</li>
+                                <li><strong>Build:</strong> Docker image built & tagged.</li>
+                                <li><strong>Push:</strong> Uploaded to Docker Hub (<code>sanjanasshetty/house-price-prediction</code>).</li>
+                                <li><strong>Deploy:</strong> Automated deploy/rollback via docker-compose.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-secondary mb-3"><i class="fas fa-cloud mr-2"></i> AWS Cloud (Terraform)</h3>
+                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                <li><strong>Compute:</strong> EC2 Instances running Docker.</li>
+                                <li><strong>Storage:</strong> S3 Buckets for model/data backups.</li>
+                                <li><strong>Database:</strong> RDS PostgreSQL for historical logs.</li>
+                                <li><strong>Security:</strong> IAM Roles & strict Security Groups.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-blue-500 mb-3"><i class="fas fa-brain mr-2"></i> Machine Learning</h3>
+                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                <li><strong>Algorithm:</strong> Random Forest Regressor (Scikit-Learn).</li>
+                                <li><strong>Preprocessing:</strong> StandardScaler.</li>
+                                <li><strong>Serving:</strong> Flask REST API (/predict).</li>
+                                <li><strong>Automation:</strong> API-triggered retraining script.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-orange-500 mb-3"><i class="fas fa-chart-line mr-2"></i> Observability</h3>
+                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                                <li><strong>Prometheus:</strong> Scrapes API metrics & latency.</li>
+                                <li><strong>Grafana:</strong> Visualizes metrics via provisioning.</li>
+                                <li><strong>Logging:</strong> Real-time feedback via UI.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- SECTION: Analytics (Placeholder) -->
+            <section id="analytics" class="page-section hidden">
+                <div class="flex flex-col items-center justify-center h-64 glass-card rounded-xl border border-gray-100 dark:border-gray-700">
+                    <i class="fas fa-chart-area text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
+                    <h2 class="text-xl font-bold">Advanced Analytics Module</h2>
+                    <p class="text-gray-500 mt-2">Extended charts will be loaded here based on data warehouse integration.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
