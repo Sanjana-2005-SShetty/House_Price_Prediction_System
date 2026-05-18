@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: house-price-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: FLASK_APP
+        value: app/app.py
+      - key: PYTHONPATH
+        value: /app
+
+  - type: web
+    name: house-price-prometheus
+    runtime: docker
+    dockerfilePath: ./monitoring/Dockerfile.prometheus
+    plan: free
+
+  - type: web
+    name: house-price-grafana
+    runtime: docker
+    dockerfilePath: ./monitoring/Dockerfile.grafana
+    plan: free
+    envVars:
+      - key: GF_SECURITY_ADMIN_PASSWORD
+        value: admin

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import subprocess
 import joblib
@@ -87,7 +88,7 @@ def predict():
 def retrain():
     try:
         train_script = os.path.join(base_dir, 'src', 'train.py')
-        result = subprocess.run(['python', train_script], capture_output=True, text=True)
+        result = subprocess.run([sys.executable, train_script], capture_output=True, text=True)
         
         if result.returncode == 0:
             load_model()  # Reload the new model

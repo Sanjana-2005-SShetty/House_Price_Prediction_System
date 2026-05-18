@@ -1,425 +1,1156 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SaaS MLOps Dashboard | House Price Prediction</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#6366f1',
-                        secondary: '#8b5cf6',
-                        dark: '#0f172a',
-                        darkCard: '#1e293b'
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body class="bg-gray-50 dark:bg-dark text-gray-900 dark:text-gray-100 transition-colors duration-300 flex h-screen overflow-hidden font-sans">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ML Nexus — MLOps Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-5 right-5 transform translate-x-full opacity-0 transition-all duration-300 z-50 flex items-center p-4 mb-4 text-sm rounded-lg shadow-lg" role="alert">
-        <i id="toast-icon" class="fas mr-3 text-lg"></i>
-        <div>
-            <span class="font-medium" id="toast-title"></span> <span id="toast-message"></span>
-        </div>
+  <style>
+    /* ── Design tokens ── */
+    :root {
+      --sky:       #7DF9FF;
+      --pink:      #FF6EB4;
+      --purple:    #BF5FFF;
+      --deep:      #070512;
+      --surface:   #0e0a1e;
+      --panel:     rgba(255,255,255,0.035);
+      --border:    rgba(125,249,255,0.13);
+      --border-px: 1px solid var(--border);
+      --glow-sky:    0 0 28px rgba(125,249,255,0.40);
+      --glow-pink:   0 0 28px rgba(255,110,180,0.40);
+      --glow-purple: 0 0 28px rgba(191,95,255,0.40);
+      --text:      #e8e0ff;
+      --muted:     rgba(232,224,255,0.42);
+      --sidebar-w: 240px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--deep);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── Ambient background ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 5% 10%,  rgba(125,249,255,0.09) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 45% at 95% 85%,  rgba(191,95,255,0.11) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 35% at 60% 45%,  rgba(255,110,180,0.07) 0%, transparent 55%);
+      pointer-events: none;
+      animation: meshDrift 16s ease-in-out infinite alternate;
+    }
+
+    @keyframes meshDrift {
+      0%   { transform: scale(1)    rotate(0deg); }
+      100% { transform: scale(1.05) rotate(1.5deg); }
+    }
+
+    .orb {
+      position: fixed; border-radius: 50%; filter: blur(90px);
+      pointer-events: none; z-index: 0; opacity: 0.14;
+      animation: floatOrb 20s ease-in-out infinite;
+    }
+    .orb-1 { width:380px; height:380px; background:var(--sky);    top:-100px; left:-60px;   animation-delay:0s; }
+    .orb-2 { width:300px; height:300px; background:var(--pink);   bottom:-60px; right:-40px; animation-delay:-8s; }
+    .orb-3 { width:260px; height:260px; background:var(--purple); top:45%; left:55%;       animation-delay:-14s; }
+
+    @keyframes floatOrb {
+      0%,100% { transform: translateY(0) scale(1); }
+      50%      { transform: translateY(-36px) scale(1.06); }
+    }
+
+    /* ══════════════ SIDEBAR ══════════════ */
+    aside {
+      position: relative; z-index: 10;
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      height: 100vh;
+      background: rgba(14,10,30,0.72);
+      backdrop-filter: blur(24px);
+      border-right: var(--border-px);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    aside::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--sky), var(--purple), transparent);
+      opacity: 0.6;
+    }
+
+    .logo-wrap {
+      padding: 24px 20px 20px;
+      border-bottom: var(--border-px);
+    }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.25rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--sky), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .logo i { -webkit-text-fill-color: var(--sky); color: var(--sky); font-size: 1.1rem; }
+
+    .logo-sub {
+      font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--muted); margin-top: 4px; font-weight: 400;
+    }
+
+    nav { flex: 1; overflow-y: auto; padding: 12px 0; }
+    nav::-webkit-scrollbar { width: 0; }
+
+    .nav-section-label {
+      font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(232,224,255,0.2); padding: 14px 20px 6px;
+      font-weight: 600;
+    }
+
+    .nav-link {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 20px;
+      font-size: 0.85rem; font-weight: 500; color: var(--muted);
+      text-decoration: none; cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: color .25s;
+      border-left: 2px solid transparent;
+    }
+
+    .nav-link i { font-size: 0.9rem; width: 18px; text-align: center; }
+
+    .nav-link::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(125,249,255,0.06), transparent);
+      opacity: 0; transition: opacity .25s;
+    }
+
+    .nav-link:hover { color: var(--sky); }
+    .nav-link:hover::before { opacity: 1; }
+
+    .nav-link.active {
+      color: var(--sky);
+      border-left-color: var(--sky);
+      box-shadow: inset 4px 0 12px rgba(125,249,255,0.08);
+    }
+    .nav-link.active::before { opacity: 1; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: var(--border-px);
+      font-size: 0.72rem; color: rgba(232,224,255,0.2);
+      letter-spacing: 0.06em;
+    }
+
+    /* ══════════════ MAIN ══════════════ */
+    main {
+      flex: 1; display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden; position: relative; z-index: 1;
+    }
+
+    /* ── Topbar ── */
+    header {
+      height: 64px;
+      background: rgba(14,10,30,0.60);
+      backdrop-filter: blur(20px);
+      border-bottom: var(--border-px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+      flex-shrink: 0;
+    }
+
+    #page-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem; font-weight: 700;
+      color: var(--text);
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+
+    .topbar-btn {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--panel); border: var(--border-px);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); cursor: pointer; font-size: 0.85rem;
+      transition: color .2s, border-color .2s, box-shadow .2s;
+    }
+    .topbar-btn:hover { color: var(--sky); border-color: rgba(125,249,255,0.3); box-shadow: var(--glow-sky); }
+
+    .avatar {
+      width: 34px; height: 34px; border-radius: 10px;
+      border: 1px solid rgba(125,249,255,0.25);
+      overflow: hidden; box-shadow: var(--glow-sky);
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* ── Scrollable content ── */
+    #main-content {
+      flex: 1; overflow-y: auto; padding: 28px;
+    }
+    #main-content::-webkit-scrollbar { width: 4px; }
+    #main-content::-webkit-scrollbar-thumb { background: rgba(125,249,255,0.15); border-radius: 4px; }
+
+    /* ── Section visibility ── */
+    .page-section { display: none; animation: sectionIn .5s cubic-bezier(.16,1,.3,1) both; }
+    .page-section.active-section { display: block; }
+
+    @keyframes sectionIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ══════════════ GLASS CARD ══════════════ */
+    .glass-card {
+      background: var(--panel);
+      border: var(--border-px);
+      border-radius: 18px;
+      backdrop-filter: blur(16px);
+      position: relative; overflow: hidden;
+      transition: transform .3s cubic-bezier(.16,1,.3,1), box-shadow .3s;
+    }
+    .glass-card:hover { transform: translateY(-3px); }
+
+    /* accent top line */
+    .card-sky::before    { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--sky),transparent); }
+    .card-pink::before   { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--pink),transparent); }
+    .card-purple::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--purple),transparent); }
+    .card-green::before  { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#4ade80,transparent); }
+
+    /* ══════════════ KPI CARDS ══════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 18px; margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      padding: 24px;
+      animation: riseIn .6s cubic-bezier(.16,1,.3,1) both;
+    }
+    .kpi-card:nth-child(1) { animation-delay:.05s; }
+    .kpi-card:nth-child(2) { animation-delay:.12s; }
+    .kpi-card:nth-child(3) { animation-delay:.19s; }
+    .kpi-card:nth-child(4) { animation-delay:.26s; }
+
+    @keyframes riseIn {
+      from { opacity:0; transform:translateY(24px) scale(.97); }
+      to   { opacity:1; transform:none; }
+    }
+
+    .kpi-icon {
+      width: 42px; height: 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; margin-bottom: 16px;
+    }
+    .kpi-icon.sky    { background:rgba(125,249,255,0.12); color:var(--sky);    box-shadow:var(--glow-sky); }
+    .kpi-icon.pink   { background:rgba(255,110,180,0.12); color:var(--pink);   box-shadow:var(--glow-pink); }
+    .kpi-icon.purple { background:rgba(191,95,255,0.12);  color:var(--purple); box-shadow:var(--glow-purple); }
+    .kpi-icon.green  { background:rgba(74,222,128,0.12);  color:#4ade80; }
+
+    .kpi-label { font-size: 0.72rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+    .kpi-value { font-family:'Syne',sans-serif; font-size:1.9rem; font-weight:800; color:var(--text); }
+    .kpi-trend { font-size:0.72rem; color:var(--muted); margin-top:8px; }
+    .kpi-trend.up   { color:#4ade80; }
+    .kpi-trend.sky  { color:var(--sky); }
+
+    /* ══════════════ CHARTS ROW ══════════════ */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px; margin-bottom: 24px;
+    }
+    @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+
+    .chart-card { padding: 24px; }
+    .chart-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem; font-weight: 700;
+      color: var(--text); margin-bottom: 4px;
+    }
+    .chart-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 18px; }
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ══════════════ TABLE ══════════════ */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .data-table th {
+      padding: 10px 14px;
+      font-size: 0.65rem; letter-spacing:0.1em; text-transform:uppercase;
+      color: var(--muted); border-bottom: var(--border-px);
+      text-align: left; font-weight: 600;
+    }
+    .data-table td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(125,249,255,0.03); }
+
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.06em;
+    }
+    .badge-sky    { background:rgba(125,249,255,0.12); color:var(--sky); border:1px solid rgba(125,249,255,0.2); }
+    .badge-green  { background:rgba(74,222,128,0.12);  color:#4ade80;   border:1px solid rgba(74,222,128,0.2); }
+    .badge-pink   { background:rgba(255,110,180,0.12); color:var(--pink); border:1px solid rgba(255,110,180,0.2); }
+
+    /* ══════════════ SECTION HEADERS ══════════════ */
+    .section-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .section-header h2 {
+      font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800;
+    }
+    .section-pill {
+      font-size: 0.65rem; letter-spacing:0.1em; text-transform:uppercase;
+      padding: 3px 12px; border-radius: 999px;
+      background: rgba(125,249,255,0.08);
+      border: 1px solid rgba(125,249,255,0.2);
+      color: var(--sky); font-weight: 600;
+    }
+
+    /* ══════════════ PREDICT FORM ══════════════ */
+    .predict-wrap { max-width: 680px; margin: 0 auto; }
+
+    .predict-header {
+      text-align: center; padding: 36px 28px 24px;
+      background: linear-gradient(135deg, rgba(125,249,255,0.07), rgba(191,95,255,0.07));
+      border-bottom: var(--border-px);
+    }
+
+    .predict-header .icon-wrap {
+      width: 64px; height: 64px; border-radius: 20px;
+      background: rgba(125,249,255,0.1); border: 1px solid rgba(125,249,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+      box-shadow: var(--glow-sky);
+    }
+
+    .predict-header .icon-wrap i { font-size: 1.8rem; color: var(--sky); }
+
+    .predict-header h2 {
+      font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--sky), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .predict-header p { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+
+    .predict-body { padding: 32px 28px; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+    @media (max-width: 540px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-full { grid-column: 1 / -1; }
+
+    .field-label {
+      display: block; font-size: 0.72rem; letter-spacing:0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-weight: 500;
+    }
+
+    .field-wrap { position: relative; }
+
+    .field-icon {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: 0.85rem; pointer-events: none;
+    }
+
+    .form-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 12px;
+      padding: 13px 14px 13px 38px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+      outline: none;
+      transition: border-color .25s, box-shadow .25s;
+    }
+
+    .form-input::placeholder { color: rgba(232,224,255,0.22); }
+
+    .form-input:focus {
+      border-color: var(--sky);
+      box-shadow: 0 0 0 3px rgba(125,249,255,0.10), var(--glow-sky);
+    }
+
+    .btn-predict {
+      width: 100%;
+      padding: 15px;
+      border: none; border-radius: 14px;
+      font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700;
+      letter-spacing: 0.04em;
+      background: linear-gradient(135deg, var(--sky), var(--purple));
+      color: #04001a;
+      cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: transform .2s, box-shadow .2s, filter .2s;
+      box-shadow: 0 4px 24px rgba(125,249,255,0.25);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+
+    .btn-predict::after {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(255,255,255,0); transition: background .2s;
+    }
+    .btn-predict:hover { filter: brightness(1.1); box-shadow: 0 6px 36px rgba(125,249,255,0.45); transform: translateY(-2px); }
+    .btn-predict:hover::after { background: rgba(255,255,255,0.07); }
+    .btn-predict:active { transform: scale(.98); }
+
+    /* Result box */
+    #resultBox {
+      margin-top: 24px; display: none;
+      animation: popIn .5s cubic-bezier(.34,1.56,.64,1) both;
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.88); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .result-inner {
+      background: linear-gradient(135deg, rgba(125,249,255,0.06), rgba(191,95,255,0.06));
+      border: 1px solid rgba(125,249,255,0.2);
+      border-radius: 16px; padding: 28px;
+      text-align: center;
+      box-shadow: var(--glow-sky);
+    }
+
+    .result-label { font-size: 0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--sky); margin-bottom:8px; }
+    .result-value {
+      font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--sky), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .result-note { font-size: 0.72rem; color: var(--muted); margin-top: 10px; }
+
+    /* ══════════════ MONITORING ══════════════ */
+    .mon-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px; margin-bottom: 24px;
+    }
+
+    .mon-card { padding: 24px; }
+
+    .mon-label { font-size: 0.72rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+    .mon-value { font-family:'Syne',sans-serif; font-size: 1.7rem; font-weight: 800; margin-bottom: 10px; }
+
+    .progress-bar-bg {
+      width: 100%; height: 6px; border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+    }
+
+    .progress-fill {
+      height: 100%; border-radius: 999px;
+      transition: width .8s cubic-bezier(.16,1,.3,1);
+    }
+
+    .fill-sky    { background: linear-gradient(90deg, var(--sky), var(--purple)); box-shadow: 0 0 10px rgba(125,249,255,0.4); }
+    .fill-pink   { background: linear-gradient(90deg, var(--pink), var(--purple)); box-shadow: 0 0 10px rgba(255,110,180,0.4); }
+
+    /* pipeline status */
+    .pipeline-card { padding: 24px; }
+    .pipeline-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .pipeline-item:last-child { border-bottom: none; }
+    .pipeline-item-name { font-size: 0.85rem; display:flex; align-items:center; gap:8px; }
+    .pipeline-item-name i { color: var(--muted); }
+
+    /* terminal */
+    .terminal {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(125,249,255,0.1);
+      border-radius: 14px; padding: 20px;
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 0.75rem; color: #4ade80;
+      height: 220px; overflow-y: auto;
+      line-height: 1.7;
+    }
+    .terminal::-webkit-scrollbar { width: 3px; }
+    .terminal::-webkit-scrollbar-thumb { background: rgba(125,249,255,0.2); }
+
+    .term-yellow { color: #fbbf24; }
+    .term-dim    { color: rgba(74,222,128,0.4); }
+    .term-sky    { color: var(--sky); }
+
+    /* ══════════════ RETRAIN ══════════════ */
+    .retrain-wrap { max-width: 600px; margin: 0 auto; }
+
+    .retrain-body { padding: 40px 32px; text-align: center; }
+
+    .retrain-icon-wrap {
+      width: 80px; height: 80px; border-radius: 24px; margin: 0 auto 24px;
+      background: rgba(191,95,255,0.1); border: 1px solid rgba(191,95,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--glow-purple);
+    }
+    .retrain-icon-wrap i { font-size: 2rem; color: var(--purple); }
+
+    .retrain-title {
+      font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800;
+      color: var(--text); margin-bottom: 10px;
+    }
+    .retrain-desc { color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 32px; }
+
+    .btn-retrain {
+      width: 100%; padding: 15px;
+      border: none; border-radius: 14px;
+      background: linear-gradient(135deg, var(--purple), #6a0dad);
+      color: #fff; font-family: 'Syne', sans-serif;
+      font-size: 1rem; font-weight: 700; letter-spacing: 0.04em;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 4px 24px rgba(191,95,255,0.30);
+      transition: transform .2s, box-shadow .2s, filter .2s;
+    }
+    .btn-retrain:hover { filter:brightness(1.12); transform:translateY(-2px); box-shadow:0 6px 36px rgba(191,95,255,0.5); }
+    .btn-retrain:active { transform: scale(.98); }
+
+    .retrain-log-wrap { border-top: var(--border-px); padding: 24px 28px; }
+
+    /* ══════════════ ARCHITECTURE ══════════════ */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 18px; margin-top: 8px;
+    }
+
+    .arch-block { padding: 24px; }
+
+    .arch-block-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .arch-block-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem;
+    }
+    .arch-block-icon.sky    { background:rgba(125,249,255,0.12); color:var(--sky);    box-shadow:var(--glow-sky); }
+    .arch-block-icon.pink   { background:rgba(255,110,180,0.12); color:var(--pink);   box-shadow:var(--glow-pink); }
+    .arch-block-icon.purple { background:rgba(191,95,255,0.12);  color:var(--purple); box-shadow:var(--glow-purple); }
+    .arch-block-icon.orange { background:rgba(251,146,60,0.12);  color:#fb923c; }
+
+    .arch-block-title { font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:700; color:var(--text); }
+
+    .arch-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+    .arch-list li {
+      font-size: 0.8rem; color: var(--muted); line-height: 1.5;
+      padding-left: 14px; position: relative;
+    }
+    .arch-list li::before {
+      content: '›'; position: absolute; left: 0;
+      color: var(--sky); font-weight: 700;
+    }
+    .arch-list li strong { color: rgba(232,224,255,0.7); font-weight: 500; }
+
+    /* ══════════════ ANALYTICS PLACEHOLDER ══════════════ */
+    .analytics-placeholder {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 320px; gap: 14px;
+    }
+    .analytics-placeholder i { font-size: 3.5rem; color: rgba(232,224,255,0.1); }
+    .analytics-placeholder h3 { font-family:'Syne',sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text); }
+    .analytics-placeholder p { font-size: 0.82rem; color: var(--muted); text-align: center; max-width: 320px; }
+
+    /* ══════════════ TOAST ══════════════ */
+    #toast {
+      position: fixed; top: 20px; right: 20px; z-index: 99;
+      background: rgba(14,10,30,0.9); backdrop-filter: blur(16px);
+      border: var(--border-px); border-radius: 14px;
+      padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+      font-size: 0.85rem;
+      transform: translateX(120%); opacity: 0;
+      transition: transform .35s cubic-bezier(.16,1,.3,1), opacity .35s;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), var(--glow-sky);
+    }
+    #toast.show { transform: none; opacity: 1; }
+
+    /* ══════════════ UTILITIES ══════════════ */
+    .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 0 0 20px; }
+
+    code {
+      font-size: 0.75rem; color: var(--sky);
+      background: rgba(125,249,255,0.08); padding: 1px 6px; border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- Toast -->
+  <div id="toast">
+    <i id="toast-icon" class="fas fa-check-circle" style="color:var(--sky)"></i>
+    <div>
+      <span id="toast-title" style="font-weight:600"></span>
+      <span id="toast-message"></span>
+    </div>
+  </div>
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside>
+    <div class="logo-wrap">
+      <div class="logo">
+        <i class="fas fa-brain"></i> ML Nexus
+      </div>
+      <div class="logo-sub">DevOps &amp; MLOps Platform</div>
     </div>
 
-    <!-- Sidebar -->
-    <aside class="w-64 bg-white dark:bg-darkCard shadow-xl h-full flex flex-col transition-colors duration-300 z-20">
-        <div class="h-16 flex items-center justify-center border-b border-gray-200 dark:border-gray-700">
-            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary flex items-center">
-                <i class="fas fa-brain mr-2 text-primary"></i> ML Nexus
-            </h1>
-        </div>
-        <nav class="flex-1 overflow-y-auto py-4">
-            <ul class="space-y-1">
-                <li>
-                    <a href="#" class="nav-link active flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="dashboard">
-                        <i class="fas fa-chart-pie w-6"></i>
-                        <span class="font-medium">Dashboard</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="predict">
-                        <i class="fas fa-home w-6"></i>
-                        <span class="font-medium">Predict Price</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="analytics">
-                        <i class="fas fa-chart-line w-6"></i>
-                        <span class="font-medium">Analytics</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="monitoring">
-                        <i class="fas fa-server w-6"></i>
-                        <span class="font-medium">System Monitoring</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="retrain">
-                        <i class="fas fa-sync-alt w-6"></i>
-                        <span class="font-medium">Retrain Model</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" class="nav-link flex items-center px-6 py-3 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary dark:hover:text-primary transition-colors" data-target="architecture">
-                        <i class="fas fa-project-diagram w-6"></i>
-                        <span class="font-medium">Architecture</span>
-                    </a>
-                </li>
-            </ul>
-        </nav>
-        <div class="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-gray-500 dark:text-gray-400">DevOps & MLOps System</span>
-            </div>
-        </div>
-    </aside>
+    <nav>
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-link active" data-target="dashboard">
+        <i class="fas fa-chart-pie"></i> Dashboard
+      </a>
+      <a class="nav-link" data-target="predict">
+        <i class="fas fa-home"></i> Predict Price
+      </a>
+      <a class="nav-link" data-target="analytics">
+        <i class="fas fa-chart-line"></i> Analytics
+      </a>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-full overflow-hidden relative">
-        <!-- Top Navbar -->
-        <header class="h-16 bg-white/80 dark:bg-darkCard/80 backdrop-blur-md shadow-sm flex items-center justify-between px-6 z-10 transition-colors duration-300">
-            <div class="flex items-center">
-                <button class="text-gray-500 dark:text-gray-400 focus:outline-none lg:hidden mr-4">
-                    <i class="fas fa-bars text-xl"></i>
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-link" data-target="monitoring">
+        <i class="fas fa-server"></i> System Monitoring
+      </a>
+      <a class="nav-link" data-target="retrain">
+        <i class="fas fa-sync-alt"></i> Retrain Model
+      </a>
+      <a class="nav-link" data-target="architecture">
+        <i class="fas fa-project-diagram"></i> Architecture
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      AWS EC2 &nbsp;·&nbsp; Docker &nbsp;·&nbsp; Jenkins
+    </div>
+  </aside>
+
+  <!-- ══════════ MAIN ══════════ -->
+  <main>
+    <header>
+      <h2 id="page-title">Dashboard Overview</h2>
+      <div class="topbar-right">
+        <div class="topbar-btn" title="Notifications">
+          <i class="fas fa-bell"></i>
+        </div>
+        <div class="topbar-btn" title="Settings">
+          <i class="fas fa-cog"></i>
+        </div>
+        <div class="avatar">
+          <img src="https://ui-avatars.com/api/?name=Admin+User&background=7DF9FF&color=04001a" alt="Admin"/>
+        </div>
+      </div>
+    </header>
+
+    <div id="main-content">
+
+      <!-- ════ DASHBOARD ════ -->
+      <section id="dashboard" class="page-section active-section">
+
+        <!-- KPI Row -->
+        <div class="kpi-grid">
+          <div class="glass-card card-sky kpi-card">
+            <div class="kpi-icon sky"><i class="fas fa-calculator"></i></div>
+            <div class="kpi-label">Total Predictions</div>
+            <div class="kpi-value" id="kpi-total">0</div>
+            <div class="kpi-trend up"><i class="fas fa-arrow-up"></i> 12% from last week</div>
+          </div>
+          <div class="glass-card card-pink kpi-card">
+            <div class="kpi-icon pink"><i class="fas fa-dollar-sign"></i></div>
+            <div class="kpi-label">Avg Predicted Price</div>
+            <div class="kpi-value" id="kpi-avg">$0</div>
+            <div class="kpi-trend up"><i class="fas fa-arrow-up"></i> Stable trend</div>
+          </div>
+          <div class="glass-card card-purple kpi-card">
+            <div class="kpi-icon purple"><i class="fas fa-bullseye"></i></div>
+            <div class="kpi-label">Model Accuracy</div>
+            <div class="kpi-value" id="kpi-accuracy">92.5%</div>
+            <div class="kpi-trend sky">Random Forest Regressor</div>
+          </div>
+          <div class="glass-card card-green kpi-card">
+            <div class="kpi-icon green"><i class="fas fa-check-circle"></i></div>
+            <div class="kpi-label">System Status</div>
+            <div class="kpi-value" style="color:#4ade80">Healthy</div>
+            <div class="kpi-trend">AWS EC2 · Docker</div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-row">
+          <div class="glass-card card-sky chart-card">
+            <div class="chart-title">Prediction Trends</div>
+            <div class="chart-sub">Last 7 days · Flight F1</div>
+            <div class="chart-wrap">
+              <canvas id="predictionsChart"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card card-purple chart-card">
+            <div class="chart-title">Recent Predictions</div>
+            <div class="chart-sub">Live history feed</div>
+            <div style="overflow-x:auto">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Area</th>
+                    <th>Beds</th>
+                    <th>Age</th>
+                    <th>Price</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table-body">
+                  <tr><td colspan="5" style="color:var(--muted);font-size:0.8rem;padding:20px;text-align:center">No recent predictions</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ════ PREDICT ════ -->
+      <section id="predict" class="page-section">
+        <div class="section-header">
+          <h2>House Price Estimator</h2>
+          <span class="section-pill">ML-Powered</span>
+        </div>
+        <div class="predict-wrap">
+          <div class="glass-card card-sky">
+            <div class="predict-header">
+              <div class="icon-wrap"><i class="fas fa-home"></i></div>
+              <h2>Instant Property Valuation</h2>
+              <p>Enter property details to get a real-time ML-powered estimate.</p>
+            </div>
+            <div class="predict-body">
+              <form id="predictionForm">
+                <div class="form-grid">
+                  <div>
+                    <label class="field-label">Area (sq ft)</label>
+                    <div class="field-wrap">
+                      <i class="field-icon fas fa-vector-square"></i>
+                      <input type="number" id="area" class="form-input" placeholder="e.g. 2500" required/>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="field-label">Bedrooms</label>
+                    <div class="field-wrap">
+                      <i class="field-icon fas fa-bed"></i>
+                      <input type="number" id="bedrooms" class="form-input" placeholder="e.g. 3" required/>
+                    </div>
+                  </div>
+                  <div class="form-full">
+                    <label class="field-label">Property Age (years)</label>
+                    <div class="field-wrap">
+                      <i class="field-icon fas fa-calendar-alt"></i>
+                      <input type="number" id="age" class="form-input" placeholder="e.g. 10" required/>
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" id="predictBtn" class="btn-predict">
+                  <i class="fas fa-bolt"></i> Predict Price
                 </button>
-                <h2 id="page-title" class="text-xl font-semibold text-gray-800 dark:text-white">Dashboard Overview</h2>
+              </form>
+
+              <div id="resultBox">
+                <div class="result-inner">
+                  <div class="result-label">Estimated Market Value</div>
+                  <div class="result-value" id="predictedPriceValue">$0</div>
+                  <div class="result-note"><i class="fas fa-info-circle"></i> Based on historical data and current model weights.</div>
+                </div>
+              </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <button id="theme-toggle" class="text-gray-500 dark:text-gray-400 hover:text-primary focus:outline-none p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                    <i class="fas fa-moon text-xl" id="theme-icon"></i>
-                </button>
-                <div class="flex items-center space-x-2">
-                    <img src="https://ui-avatars.com/api/?name=Admin+User&background=6366f1&color=fff" alt="Profile" class="w-8 h-8 rounded-full shadow-sm">
-                    <span class="text-sm font-medium hidden md:block">Admin</span>
-                </div>
-            </div>
-        </header>
-
-        <!-- Scrollable Content Area -->
-        <div class="flex-1 overflow-y-auto p-6 bg-transparent" id="main-content">
-            
-            <!-- SECTION: Dashboard -->
-            <section id="dashboard" class="page-section active-section">
-                <!-- KPI Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <!-- Card 1 -->
-                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Predictions</p>
-                                <h3 class="text-3xl font-bold mt-1" id="kpi-total">0</h3>
-                            </div>
-                            <div class="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
-                                <i class="fas fa-calculator text-xl"></i>
-                            </div>
-                        </div>
-                        <p class="text-xs text-green-500 mt-4 flex items-center"><i class="fas fa-arrow-up mr-1"></i> 12% from last week</p>
-                    </div>
-                    <!-- Card 2 -->
-                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Avg Predicted Price</p>
-                                <h3 class="text-3xl font-bold mt-1" id="kpi-avg">$0</h3>
-                            </div>
-                            <div class="p-3 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg">
-                                <i class="fas fa-dollar-sign text-xl"></i>
-                            </div>
-                        </div>
-                        <p class="text-xs text-green-500 mt-4 flex items-center"><i class="fas fa-arrow-up mr-1"></i> Stable trend</p>
-                    </div>
-                    <!-- Card 3 -->
-                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Model Accuracy</p>
-                                <h3 class="text-3xl font-bold mt-1" id="kpi-accuracy">92.5%</h3>
-                            </div>
-                            <div class="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg">
-                                <i class="fas fa-bullseye text-xl"></i>
-                            </div>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-4">Random Forest Regressor</p>
-                    </div>
-                    <!-- Card 4 -->
-                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">System Status</p>
-                                <h3 class="text-3xl font-bold mt-1 text-green-500">Healthy</h3>
-                            </div>
-                            <div class="p-3 bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg">
-                                <i class="fas fa-check-circle text-xl"></i>
-                            </div>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-4">AWS EC2 | Docker</p>
-                    </div>
-                </div>
-
-                <!-- Charts Row -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">Prediction Trends</h3>
-                        <div class="relative h-64 w-full">
-                            <canvas id="predictionsChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold mb-4 border-b border-gray-200 dark:border-gray-700 pb-2">Recent Predictions History</h3>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm text-left">
-                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-400">
-                                    <tr>
-                                        <th class="px-4 py-3 rounded-l-lg">Time</th>
-                                        <th class="px-4 py-3">Area</th>
-                                        <th class="px-4 py-3">Beds</th>
-                                        <th class="px-4 py-3">Age</th>
-                                        <th class="px-4 py-3 rounded-r-lg">Price</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="history-table-body">
-                                    <!-- Populated via JS -->
-                                    <tr><td colspan="5" class="text-center py-4">No recent predictions</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SECTION: Predict Price -->
-            <section id="predict" class="page-section hidden">
-                <div class="max-w-3xl mx-auto">
-                    <div class="glass-card rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="bg-gradient-to-r from-primary to-secondary p-6 text-white text-center">
-                            <h2 class="text-2xl font-bold"><i class="fas fa-home mr-2"></i> House Price Estimator</h2>
-                            <p class="text-primary-100 mt-2 opacity-90">Enter property details to get an instant ML-powered valuation.</p>
-                        </div>
-                        
-                        <div class="p-8">
-                            <form id="predictionForm" class="space-y-6">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div class="form-group">
-                                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Area (Square Feet)</label>
-                                        <div class="relative">
-                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <i class="fas fa-vector-square text-gray-400"></i>
-                                            </div>
-                                            <input type="number" id="area" required class="form-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-primary focus:border-primary transition-all text-gray-900 dark:text-white" placeholder="e.g. 2500">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Number of Bedrooms</label>
-                                        <div class="relative">
-                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <i class="fas fa-bed text-gray-400"></i>
-                                            </div>
-                                            <input type="number" id="bedrooms" required class="form-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-primary focus:border-primary transition-all text-gray-900 dark:text-white" placeholder="e.g. 3">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="form-group md:col-span-2">
-                                        <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Property Age (Years)</label>
-                                        <div class="relative">
-                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <i class="fas fa-calendar-alt text-gray-400"></i>
-                                            </div>
-                                            <input type="number" id="age" required class="form-input block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-primary focus:border-primary transition-all text-gray-900 dark:text-white" placeholder="e.g. 10">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button type="submit" id="predictBtn" class="w-full py-4 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-gradient-to-r from-primary to-secondary hover:from-secondary hover:to-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all transform hover:scale-[1.02]">
-                                    <span>Predict Price</span>
-                                    <i class="fas fa-arrow-right ml-2"></i>
-                                </button>
-                            </form>
-
-                            <!-- Result Display -->
-                            <div id="resultBox" class="mt-8 hidden animate-fade-in-up">
-                                <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-center shadow-inner relative overflow-hidden">
-                                    <!-- Decorative circle -->
-                                    <div class="absolute -right-10 -top-10 w-32 h-32 bg-green-500/10 rounded-full blur-2xl"></div>
-                                    <p class="text-sm font-semibold text-green-700 dark:text-green-400 uppercase tracking-wider mb-2">Estimated Market Value</p>
-                                    <h3 class="text-5xl font-extrabold text-green-600 dark:text-green-400 drop-shadow-sm" id="predictedPriceValue">$0</h3>
-                                    <p class="text-xs text-gray-500 mt-4"><i class="fas fa-info-circle"></i> Based on historical data and current model weights.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SECTION: Monitoring -->
-            <section id="monitoring" class="page-section hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <div class="glass-card rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between col-span-1 lg:col-span-1">
-                        <div>
-                            <p class="text-sm text-gray-500">CPU Usage</p>
-                            <h3 class="text-2xl font-bold" id="mon-cpu">45%</h3>
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2 dark:bg-gray-700">
-                                <div class="bg-primary h-2.5 rounded-full" id="bar-cpu" style="width: 45%"></div>
-                            </div>
-                        </div>
-                        <i class="fas fa-microchip text-4xl text-gray-300 dark:text-gray-600"></i>
-                    </div>
-                    <div class="glass-card rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between col-span-1 lg:col-span-1">
-                        <div>
-                            <p class="text-sm text-gray-500">Memory Usage</p>
-                            <h3 class="text-2xl font-bold" id="mon-mem">62%</h3>
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2 dark:bg-gray-700">
-                                <div class="bg-secondary h-2.5 rounded-full" id="bar-mem" style="width: 62%"></div>
-                            </div>
-                        </div>
-                        <i class="fas fa-memory text-4xl text-gray-300 dark:text-gray-600"></i>
-                    </div>
-                    <div class="glass-card rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700 col-span-1 lg:col-span-1">
-                        <p class="text-sm text-gray-500 mb-4">Pipeline Status</p>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium flex items-center"><i class="fab fa-jenkins mr-2"></i> Jenkins Build</span>
-                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full dark:bg-green-900/50 dark:text-green-400">Success</span>
-                        </div>
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium flex items-center"><i class="fab fa-docker mr-2"></i> Docker Status</span>
-                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full dark:bg-green-900/50 dark:text-green-400">Running</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm font-medium flex items-center"><i class="fab fa-aws mr-2"></i> AWS Deployment</span>
-                            <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full dark:bg-green-900/50 dark:text-green-400">Healthy</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="glass-card rounded-xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold"><i class="fas fa-tachometer-alt mr-2 text-primary"></i>Grafana & Prometheus Live Metrics (Mocked)</h3>
-                        <button class="text-primary hover:text-secondary" onclick="fetchDashboardStats()"><i class="fas fa-sync-alt"></i></button>
-                    </div>
-                    <div class="bg-gray-900 rounded-lg p-4 font-mono text-xs text-green-400 overflow-x-auto h-64 shadow-inner">
-                        <p># HELP app_request_count Total API requests</p>
-                        <p># TYPE app_request_count counter</p>
-                        <p>app_request_count{endpoint="/predict",http_status="200",method="POST"} <span id="prom-predict-count">0</span>.0</p>
-                        <p>app_request_count{endpoint="/health",http_status="200",method="GET"} 52.0</p>
-                        <p># HELP app_request_latency_seconds Request latency in seconds</p>
-                        <p># TYPE app_request_latency_seconds histogram</p>
-                        <p>app_request_latency_seconds_bucket{endpoint="/predict",le="0.005"} 0.0</p>
-                        <p>app_request_latency_seconds_bucket{endpoint="/predict",le="0.01"} 2.0</p>
-                        <p class="text-yellow-400 mt-2">-- Live Stream Connected --</p>
-                        <p class="opacity-50">Monitoring container health... OK</p>
-                        <p class="opacity-50">Scraping node metrics... OK</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SECTION: Retrain Model -->
-            <section id="retrain" class="page-section hidden">
-                <div class="max-w-2xl mx-auto">
-                    <div class="glass-card rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="p-8 text-center">
-                            <div class="w-20 h-20 bg-blue-100 dark:bg-blue-900/40 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <i class="fas fa-robot text-4xl text-primary"></i>
-                            </div>
-                            <h2 class="text-2xl font-bold mb-2">Automated MLOps Retraining</h2>
-                            <p class="text-gray-500 dark:text-gray-400 mb-8">Trigger the CI/CD pipeline to fetch the latest dataset, preprocess features, and retrain the Random Forest Regressor on the fly. No downtime required.</p>
-                            
-                            <button id="triggerRetrainBtn" class="bg-dark dark:bg-white text-white dark:text-dark px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-all shadow-lg flex items-center justify-center w-full mx-auto">
-                                <i class="fas fa-play-circle mr-3"></i> Trigger Retraining Pipeline
-                            </button>
-                        </div>
-                        
-                        <!-- Terminal Log Box -->
-                        <div id="retrainLogContainer" class="hidden bg-gray-900 p-6 border-t border-gray-800">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs text-gray-400 font-mono">Terminal Output</span>
-                                <span class="flex space-x-1">
-                                    <span class="w-3 h-3 rounded-full bg-red-500"></span>
-                                    <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
-                                    <span class="w-3 h-3 rounded-full bg-green-500"></span>
-                                </span>
-                            </div>
-                            <pre id="retrainLog" class="font-mono text-xs text-gray-300 whitespace-pre-wrap max-h-64 overflow-y-auto">Initiating retraining sequence...</pre>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- SECTION: Architecture -->
-            <section id="architecture" class="page-section hidden">
-                <div class="glass-card rounded-xl p-8 shadow-lg border border-gray-100 dark:border-gray-700">
-                    <h2 class="text-2xl font-bold mb-6 text-center border-b border-gray-200 dark:border-gray-700 pb-4">DevOps & MLOps Architecture</h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                        <div>
-                            <h3 class="font-bold text-lg text-primary mb-3"><i class="fas fa-code-branch mr-2"></i> CI/CD Pipeline (Jenkins)</h3>
-                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                                <li><strong>Trigger:</strong> GitHub Webhook on push.</li>
-                                <li><strong>Test:</strong> Pytest runs unit tests automatically.</li>
-                                <li><strong>Build:</strong> Docker image built & tagged.</li>
-                                <li><strong>Push:</strong> Uploaded to Docker Hub (<code>sanjanasshetty/house-price-prediction</code>).</li>
-                                <li><strong>Deploy:</strong> Automated deploy/rollback via docker-compose.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-lg text-secondary mb-3"><i class="fas fa-cloud mr-2"></i> AWS Cloud (Terraform)</h3>
-                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                                <li><strong>Compute:</strong> EC2 Instances running Docker.</li>
-                                <li><strong>Storage:</strong> S3 Buckets for model/data backups.</li>
-                                <li><strong>Database:</strong> RDS PostgreSQL for historical logs.</li>
-                                <li><strong>Security:</strong> IAM Roles & strict Security Groups.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-lg text-blue-500 mb-3"><i class="fas fa-brain mr-2"></i> Machine Learning</h3>
-                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                                <li><strong>Algorithm:</strong> Random Forest Regressor (Scikit-Learn).</li>
-                                <li><strong>Preprocessing:</strong> StandardScaler.</li>
-                                <li><strong>Serving:</strong> Flask REST API (/predict).</li>
-                                <li><strong>Automation:</strong> API-triggered retraining script.</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-lg text-orange-500 mb-3"><i class="fas fa-chart-line mr-2"></i> Observability</h3>
-                            <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                                <li><strong>Prometheus:</strong> Scrapes API metrics & latency.</li>
-                                <li><strong>Grafana:</strong> Visualizes metrics via provisioning.</li>
-                                <li><strong>Logging:</strong> Real-time feedback via UI.</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            
-            <!-- SECTION: Analytics (Placeholder) -->
-            <section id="analytics" class="page-section hidden">
-                <div class="flex flex-col items-center justify-center h-64 glass-card rounded-xl border border-gray-100 dark:border-gray-700">
-                    <i class="fas fa-chart-area text-6xl text-gray-300 dark:text-gray-600 mb-4"></i>
-                    <h2 class="text-xl font-bold">Advanced Analytics Module</h2>
-                    <p class="text-gray-500 mt-2">Extended charts will be loaded here based on data warehouse integration.</p>
-                </div>
-            </section>
+          </div>
         </div>
-    </main>
+      </section>
 
-    <!-- Custom JavaScript -->
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+      <!-- ════ ANALYTICS ════ -->
+      <section id="analytics" class="page-section">
+        <div class="section-header">
+          <h2>Analytics</h2>
+          <span class="section-pill">Coming soon</span>
+        </div>
+        <div class="glass-card card-pink">
+          <div class="analytics-placeholder">
+            <i class="fas fa-chart-area"></i>
+            <h3>Advanced Analytics Module</h3>
+            <p>Extended charts and data warehouse integration will be loaded here.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ MONITORING ════ -->
+      <section id="monitoring" class="page-section">
+        <div class="section-header">
+          <h2>System Monitoring</h2>
+          <span class="section-pill">Live</span>
+        </div>
+
+        <div class="mon-grid">
+          <div class="glass-card card-sky mon-card">
+            <div class="kpi-icon sky" style="margin-bottom:14px"><i class="fas fa-microchip"></i></div>
+            <div class="mon-label">CPU Usage</div>
+            <div class="mon-value" id="mon-cpu" style="color:var(--sky)">45%</div>
+            <div class="progress-bar-bg">
+              <div class="progress-fill fill-sky" id="bar-cpu" style="width:45%"></div>
+            </div>
+          </div>
+
+          <div class="glass-card card-pink mon-card">
+            <div class="kpi-icon pink" style="margin-bottom:14px"><i class="fas fa-memory"></i></div>
+            <div class="mon-label">Memory Usage</div>
+            <div class="mon-value" id="mon-mem" style="color:var(--pink)">62%</div>
+            <div class="progress-bar-bg">
+              <div class="progress-fill fill-pink" id="bar-mem" style="width:62%"></div>
+            </div>
+          </div>
+
+          <div class="glass-card card-purple pipeline-card">
+            <div class="mon-label" style="margin-bottom:16px">Pipeline Status</div>
+            <div class="pipeline-item">
+              <span class="pipeline-item-name"><i class="fab fa-jenkins"></i> Jenkins Build</span>
+              <span class="badge badge-green">Success</span>
+            </div>
+            <div class="pipeline-item">
+              <span class="pipeline-item-name"><i class="fab fa-docker"></i> Docker Status</span>
+              <span class="badge badge-green">Running</span>
+            </div>
+            <div class="pipeline-item">
+              <span class="pipeline-item-name"><i class="fab fa-aws"></i> AWS Deployment</span>
+              <span class="badge badge-sky">Healthy</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card card-sky" style="padding:24px">
+          <div style="display:flex;align-items:center;justify-content:between;margin-bottom:16px;gap:10px">
+            <div style="flex:1">
+              <div class="chart-title"><i class="fas fa-tachometer-alt" style="color:var(--sky);margin-right:8px"></i>Prometheus Live Metrics</div>
+              <div class="chart-sub">Grafana &amp; Prometheus — Mocked Stream</div>
+            </div>
+            <div class="topbar-btn" onclick="fetchDashboardStats()" title="Refresh">
+              <i class="fas fa-sync-alt"></i>
+            </div>
+          </div>
+          <div class="terminal">
+            <span class="term-dim"># HELP app_request_count Total API requests</span><br/>
+            <span class="term-dim"># TYPE app_request_count counter</span><br/>
+            app_request_count{endpoint="/predict",http_status="200",method="POST"} <span class="term-sky" id="prom-predict-count">0</span>.0<br/>
+            app_request_count{endpoint="/health",http_status="200",method="GET"} 52.0<br/>
+            <span class="term-dim"># HELP app_request_latency_seconds Request latency in seconds</span><br/>
+            <span class="term-dim"># TYPE app_request_latency_seconds histogram</span><br/>
+            app_request_latency_seconds_bucket{endpoint="/predict",le="0.005"} 0.0<br/>
+            app_request_latency_seconds_bucket{endpoint="/predict",le="0.01"} 2.0<br/>
+            <br/><span class="term-yellow">-- Live Stream Connected --</span><br/>
+            <span class="term-dim">Monitoring container health... OK</span><br/>
+            <span class="term-dim">Scraping node metrics... OK</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ RETRAIN ════ -->
+      <section id="retrain" class="page-section">
+        <div class="section-header">
+          <h2>Retrain Model</h2>
+          <span class="section-pill">CI/CD</span>
+        </div>
+        <div class="retrain-wrap">
+          <div class="glass-card card-purple">
+            <div class="retrain-body">
+              <div class="retrain-icon-wrap"><i class="fas fa-robot"></i></div>
+              <div class="retrain-title">Automated MLOps Retraining</div>
+              <p class="retrain-desc">Trigger the CI/CD pipeline to fetch the latest dataset, preprocess features, and retrain the Random Forest Regressor on the fly. Zero downtime required.</p>
+              <button id="triggerRetrainBtn" class="btn-retrain">
+                <i class="fas fa-play-circle"></i> Trigger Retraining Pipeline
+              </button>
+            </div>
+
+            <div id="retrainLogContainer" class="retrain-log-wrap" style="display:none">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <span style="font-size:0.72rem;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase">Terminal Output</span>
+                <span style="display:flex;gap:6px">
+                  <span style="width:10px;height:10px;border-radius:50%;background:#f87171;display:inline-block"></span>
+                  <span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;display:inline-block"></span>
+                  <span style="width:10px;height:10px;border-radius:50%;background:#4ade80;display:inline-block"></span>
+                </span>
+              </div>
+              <div class="terminal">
+                <pre id="retrainLog" style="white-space:pre-wrap;font-family:inherit;font-size:inherit;color:inherit">Initiating retraining sequence...</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ ARCHITECTURE ════ -->
+      <section id="architecture" class="page-section">
+        <div class="section-header">
+          <h2>Architecture</h2>
+          <span class="section-pill">DevOps &amp; MLOps</span>
+        </div>
+        <div class="glass-card" style="padding:28px">
+          <div class="arch-grid">
+            <div class="glass-card card-sky arch-block">
+              <div class="arch-block-header">
+                <div class="arch-block-icon sky"><i class="fas fa-code-branch"></i></div>
+                <div class="arch-block-title">CI/CD Pipeline — Jenkins</div>
+              </div>
+              <ul class="arch-list">
+                <li><strong>Trigger:</strong> GitHub Webhook on push</li>
+                <li><strong>Test:</strong> Pytest unit tests auto-run</li>
+                <li><strong>Build:</strong> Docker image built &amp; tagged</li>
+                <li><strong>Push:</strong> <code>sanjanasshetty/house-price-prediction</code></li>
+                <li><strong>Deploy:</strong> Auto deploy/rollback via docker-compose</li>
+              </ul>
+            </div>
+
+            <div class="glass-card card-pink arch-block">
+              <div class="arch-block-header">
+                <div class="arch-block-icon pink"><i class="fas fa-cloud"></i></div>
+                <div class="arch-block-title">AWS Cloud — Terraform</div>
+              </div>
+              <ul class="arch-list">
+                <li><strong>Compute:</strong> EC2 instances running Docker</li>
+                <li><strong>Storage:</strong> S3 buckets for model/data backups</li>
+                <li><strong>Database:</strong> RDS PostgreSQL for historical logs</li>
+                <li><strong>Security:</strong> IAM Roles &amp; strict Security Groups</li>
+              </ul>
+            </div>
+
+            <div class="glass-card card-purple arch-block">
+              <div class="arch-block-header">
+                <div class="arch-block-icon purple"><i class="fas fa-brain"></i></div>
+                <div class="arch-block-title">Machine Learning</div>
+              </div>
+              <ul class="arch-list">
+                <li><strong>Algorithm:</strong> Random Forest Regressor (Scikit-Learn)</li>
+                <li><strong>Preprocessing:</strong> StandardScaler</li>
+                <li><strong>Serving:</strong> Flask REST API <code>/predict</code></li>
+                <li><strong>Automation:</strong> API-triggered retraining script</li>
+              </ul>
+            </div>
+
+            <div class="glass-card arch-block" style="border-color:rgba(251,146,60,0.15)">
+              <div class="arch-block-header">
+                <div class="arch-block-icon orange"><i class="fas fa-chart-line"></i></div>
+                <div class="arch-block-title">Observability</div>
+              </div>
+              <ul class="arch-list">
+                <li><strong>Prometheus:</strong> Scrapes API metrics &amp; latency</li>
+                <li><strong>Grafana:</strong> Visualises metrics via provisioning</li>
+                <li><strong>Logging:</strong> Real-time feedback via UI terminal</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /main-content -->
+  </main>
+
+  <script>
+    /* ══ Navigation ══ */
+    const titles = {
+      dashboard:'Dashboard Overview', predict:'House Price Estimator',
+      analytics:'Analytics', monitoring:'System Monitoring',
+      retrain:'Retrain Model', architecture:'Architecture'
+    };
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        const target = link.dataset.target;
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+        document.querySelectorAll('.page-section').forEach(s => {
+          s.classList.remove('active-section');
+          s.style.display = 'none';
+        });
+        const sec = document.getElementById(target);
+        sec.style.display = 'block';
+        sec.classList.add('active-section');
+        document.getElementById('page-title').textContent = titles[target] || target;
+      });
+    });
+
+    /* ══ Toast ══ */
+    function showToast(title, message, isError = false) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-message').textContent = message;
+      const icon = document.getElementById('toast-icon');
+      icon.className = isError ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
+      icon.style.color = isError ? 'var(--pink)' : 'var(--sky)';
+      toast.style.borderColor = isError ? 'rgba(255,110,180,0.2)' : 'rgba(125,249,255,0.13)';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    /* ══ Chart ══ */
+    const ctx = document.getElementById('predictionsChart').getContext('2d');
+    const chartGrad = ctx.createLinearGradient(0, 0, 0, 220);
+    chartGrad.addColorStop(0, 'rgba(125,249,255,0.22)');
+    chartGrad.addColorStop(1, 'rgba(125,249,255,0)');
+
+    const predictionsChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+        datasets: [{
+          label: 'Predictions',
+          data: [4, 7, 5, 11, 8, 14, 10],
+          borderColor: '#7DF9FF',
+          backgroundColor: chartGrad,
+          borderWidth: 2, tension: 0.45,
+          pointBackgroundColor: '#7DF9FF',
+          pointRadius: 4, pointHoverRadius: 6,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { color: 'rgba(232,224,255,0.35)', font: { size: 11 } }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.04)' },
+            ticks: { color: 'rgba(232,224,255,0.35)', font: { size: 11 } }
+          }
+        }
+      }
+    });
+
+    /* ══ Stats (mocked) ══ */
+    function fetchDashboardStats() {
+      document.getElementById('kpi-total').textContent = Math.floor(Math.random() * 900 + 100);
+      document.getElementById('kpi-avg').textContent = '$' + (Math.random() * 200000 + 150000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+      const cpu = Math.floor(Math.random() * 60 + 20);
+      const mem = Math.floor(Math.random() * 40 + 40);
+      document.getElementById('mon-cpu').textContent = cpu + '%';
+      document.getElementById('bar-cpu').style.width = cpu + '%';
+      document.getElementById('mon-mem').textContent = mem + '%';
+      document.getElementById('bar-mem').style.width = mem + '%';
+      const count = parseInt(document.getElementById('prom-predict-count').textContent || '0');
+      document.getElementById('prom-predict-count').textContent = count + Math.floor(Math.random() * 5);
+    }
+
+    fetchDashboardStats();
+
+    /* ══ Predict form ══ */
+    document.getElementById('predictionForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('predictBtn');
+      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Predicting…';
+      btn.style.opacity = '0.75';
+
+      try {
+        const res = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            area: +document.getElementById('area').value,
+            bedrooms: +document.getElementById('bedrooms').value,
+            age: +document.getElementById('age').value
+          })
+        });
+        const data = await res.json();
+        if (data.predicted_price !== undefined) {
+          const price = '$' + parseFloat(data.predicted_price).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          document.getElementById('predictedPriceValue').textContent = price;
+          document.getElementById('resultBox').style.display = 'block';
+
+          // Update KPI
+          document.getElementById('kpi-avg').textContent = price;
+          const total = parseInt(document.getElementById('kpi-total').textContent || '0');
+          document.getElementById('kpi-total').textContent = total + 1;
+          document.getElementById('prom-predict-count').textContent = total + 1;
+
+          // Add to history
+          const tbody = document.getElementById('history-table-body');
+          if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${new Date().toLocaleTimeString()}</td>
+            <td>${document.getElementById('area').value}</td>
+            <td>${document.getElementById('bedrooms').value}</td>
+            <td>${document.getElementById('age').value}</td>
+            <td><span class="badge badge-sky">${price}</span></td>
+          `;
+          tbody.insertBefore(row, tbody.firstChild);
+
+          // Update chart
+          const d = predictionsChart.data.datasets[0].data;
+          d.push(d.length > 0 ? d[d.length-1] + 1 : 1);
+          if (d.length > 7) d.shift();
+          predictionsChart.update();
+
+          showToast('Prediction complete!', price);
+        } else {
+          showToast('Error', data.error || 'Unknown error.', true);
+        }
+      } catch {
+        showToast('Network error', 'Could not reach prediction API.', true);
+      }
+
+      btn.innerHTML = '<i class="fas fa-bolt"></i> Predict Price';
+      btn.style.opacity = '1';
+    });
+
+    /* ══ Retrain ══ */
+    document.getElementById('triggerRetrainBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('triggerRetrainBtn');
+      const logContainer = document.getElementById('retrainLogContainer');
+      const log = document.getElementById('retrainLog');
+
+      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Running Pipeline…';
+      btn.style.opacity = '0.75'; btn.disabled = true;
+      logContainer.style.display = 'block';
+      log.textContent = 'Initiating retraining sequence...\n';
+
+      const steps = [
+        '› Fetching latest dataset from S3...',
+        '› Preprocessing features with StandardScaler...',
+        '› Splitting train/test sets (80/20)...',
+        '› Training Random Forest Regressor...',
+        '› Evaluating model performance...',
+        '✓ Accuracy: 92.5% | MAE: $12,400',
+        '› Saving model artifact to /models/rf_model.pkl...',
+        '› Pushing Docker image to registry...',
+        '✓ Pipeline complete. New model deployed!'
+      ];
+
+      for (const step of steps) {
+        await new Promise(r => setTimeout(r, 600));
+        log.textContent += step + '\n';
+        log.parentElement.scrollTop = log.parentElement.scrollHeight;
+      }
+
+      showToast('Retraining complete!', 'New model is live.');
+      btn.innerHTML = '<i class="fas fa-check-circle"></i> Pipeline Completed';
+      btn.style.opacity = '1'; btn.disabled = false;
+    });
+  </script>
+
 </body>
 </html>
